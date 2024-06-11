@@ -1,6 +1,8 @@
 import edu.princeton.cs.algs4.Picture;
 import edu.princeton.cs.algs4.Queue;
-import java.util.TreeSet;
+//import java.util.TreeSet;
+import java.util.Arrays;
+import java.util.Stack;
 //TODO:
 // 1. May need to replace isValidPixel with isValidVertix. Not sure if we need to include source or sink vertex in these computations.
 // 2. If we decide to keep the original pixels (and not toss after carving) then we'll need to keep a copy of old Height and old Width for computation.
@@ -23,11 +25,14 @@ public class SeamCarver {
         return nPixels()+2;
     }
 
+    private int srcVertex = 0;
+    private int sinkVertex = nVertices()-1;
+
     private int[] edgeTo;
     private double[] distTo;
 
     // Keep set of existing pixels/vertices (ones that haven't been deleted).
-    private TreeSet<Integer> existingPixelSet;
+//    private TreeSet<Integer> existingPixelSet;
 
 
     private int[] rgbIntToArray(int rgb){
@@ -40,13 +45,27 @@ public class SeamCarver {
 
     private int idxOffset = 1;
     private int[] idxToColRow(int i){
-        int col = (i-idxOffset) / W;
-        int row = (i-idxOffset) % W;
+        int col = i / W;
+        int row = i % W;
+//        int col = (i-idxOffset) / W;
+//        int row = (i-idxOffset) % W;
         int[] colRow = {col,row};
         return colRow;
     }
+    private int[] vertexToColRow(int i){
+        return idxToColRow(i-idxOffset);
+//        int col = (i-idxOffset) / W;
+//        int row = (i-idxOffset) % W;
+//        int[] colRow = {col,row};
+//        return colRow;
+    }
     private int colrowToIndex(int col, int row){
-        return row*W + col + idxOffset;
+//        return row*W + col + idxOffset;
+        return row*W + col;
+    }
+
+    private int colrowToVertex(int col, int row){
+        return colrowToIndex(col, row) + idxOffset;
     }
 
     private double energyCol(int col, int row, boolean transpose){
@@ -85,26 +104,37 @@ public class SeamCarver {
     private Queue<Integer> adjVerticalVertex(int v){
         Queue<Integer> q = new Queue<>();
         // If we are dealing with the virtual source, all pixels on the first row are adjacent to it.
-        if(v==0){
+        if(v==srcVertex){
             int row = 0;
             for(int col = 0; col < W; col++) {
                 assert isValidPixel(col,row);
-                int w = colrowToIndex(col,row);
+                int w = colrowToVertex(col,row);
                 q.enqueue(w);
             }
             return q;
         }
 
-        int[] colRow = idxToColRow(v);
+        // If we are dealing with sink, return empty q.
+        if(v == sinkVertex)
+            return q;
+
+        int[] colRow = vertexToColRow(v);
         int currCol = colRow[0];
         int currRow = colRow[1];
         assert isValidPixel(currCol,currRow);
+
+        // If we are dealing with last row, then adjacent vertex is sink source.
+        if(currRow == H-1){
+            q.enqueue(sinkVertex);
+            return q;
+        }
+
         int[] neighborColOffset = {-1,0,+1};
         for(int offset : neighborColOffset){
             int col = currCol + offset;
             int row = currRow + 1;
             if(isValidPixel(col,row))
-                q.enqueue(colrowToIndex(col,row));
+                q.enqueue(colrowToVertex(col,row));
         }
         return q;
     }
@@ -112,8 +142,12 @@ public class SeamCarver {
     private double weight(int v,int w){
         // edge weight is defined by energy at node w.
         // for w = sink vertex, define weight to be 0.
-        if(w == (nPixels()+1))
+        assert(w != srcVertex);
+        if(w == sinkVertex)
             return 0.0;
+
+        int[] colRow = vertexToColRow(w);
+        return energy(colRow[0],colRow[1]);
     }
 
     private boolean isValidPixel(int col, int row){
@@ -212,7 +246,33 @@ public class SeamCarver {
     // sequence of indices for vertical seam
     public int[] findVerticalSeam(){
         // Topological order = put vertices in order such that all its directed edges point from a vertex earlier in order to vertex later in order. For a vertical seam in a picture, that order is by traversing pixels row by row
-//        for(int)
+        int[] edgeTo = new int[nVertices()];
+        double[] distTo = new double[nVertices()];
+        Arrays.fill(distTo,Double.POSITIVE_INFINITY);
+        distTo[srcVertex] = 0.0;
+        for(int v = 0; v < nVertices(); v++){
+            for(int w : adjVerticalVertex(v)){
+                double currWeight = weight(v,w);
+                if(distTo[w] >= distTo[v] + currWeight){
+                    distTo[w] = distTo[v] + currWeight;
+                    edgeTo[w] = v;
+                }
+            }
+        }
+
+        Stack<Integer> s = new Stack<>();
+        for(int v = edgeTo[sinkVertex]; v != srcVertex; v = edgeTo[v]){
+            s.push(v);
+        }
+
+        int[] seam = new int[s.size()];
+        for(int i = 0; i < s.size(); i++) {
+            int[] colRow = vertexToColRow(s.pop());
+            // Convert vertex to corresponding col,row and store column
+            seam[i] = colRow[0];
+        }
+
+        return seam;
     }
 
     // remove horizontal seam from current picture
