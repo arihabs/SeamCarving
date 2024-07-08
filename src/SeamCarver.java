@@ -193,8 +193,8 @@ public class SeamCarver {
     private int[][] transpose(int[][] A){
         int m, n;
 //        if(!isTransposed){
-            m = this.H;
-            n = this.W;
+        m = this.H;
+        n = this.W;
 //        }
 //        else{
 //            m = this.W;
@@ -212,8 +212,8 @@ public class SeamCarver {
     private double[][] transpose(double[][] A){
         int m, n;
 //        if(!isTransposed){
-            m = this.H;
-            n = this.W;
+        m = this.H;
+        n = this.W;
 //        }
 //        else{
 //            m = this.W;
@@ -333,7 +333,13 @@ public class SeamCarver {
     // energy of pixel at column x and row y
     public double energy(int x, int y){
         if(isTransposed)
-            return pixEnergyArr[x][y];
+            if(!isValidPixel(y,x))
+                throw new IllegalArgumentException();
+            else
+                return pixEnergyArr[x][y];
+        else
+        if(!isValidPixel(x,y))
+            throw new IllegalArgumentException();
         else
             return pixEnergyArr[y][x];
     }
@@ -392,6 +398,8 @@ public class SeamCarver {
 
     // remove horizontal seam from current picture
     public void removeHorizontalSeam(int[] seam){
+        if(seam==null)
+            throw new IllegalArgumentException("Null argument not valid!");
         if(!isTransposed){
             transpose();
         }
@@ -401,6 +409,8 @@ public class SeamCarver {
     // remove vertical seam from current picture
     // REMOVE pixelsNew and energyNew and just call arraycopy with same variable!
     public void removeVerticalSeam(int[] seam){
+        if(seam==null)
+            throw new IllegalArgumentException("Null argument not valid!");
         if(isTransposed){
             transpose();
         }
@@ -418,15 +428,19 @@ public class SeamCarver {
 //        int length;
 //        int[][] pixelsNew = new int[H][W-1];
 //        double[][] energyNew = new double[H][W-1];
+        if(this.W <=1)
+            throw new IllegalArgumentException();
         int rowCnt = 0;
         for(int col : seam){
-           if(col == 0){
-               int srcPos = 1;
-               int destPos = 0;
-               int length = W-1;
-               System.arraycopy(pixels[rowCnt],srcPos,pixels[rowCnt],destPos,length);
-               System.arraycopy(pixEnergyArr[rowCnt],srcPos,pixEnergyArr[rowCnt],destPos,length);
-               // Recompute energies dependant on removed pixel
+            if(col < 0 || col >=this.W)
+                throw new IllegalArgumentException("Invalid seam.");
+            if(col == 0){
+                int srcPos = 1;
+                int destPos = 0;
+                int length = W-1;
+                System.arraycopy(pixels[rowCnt],srcPos,pixels[rowCnt],destPos,length);
+                System.arraycopy(pixEnergyArr[rowCnt],srcPos,pixEnergyArr[rowCnt],destPos,length);
+                // Recompute energies dependant on removed pixel
 //               pixEnergyArr[rowCnt][0] = BORDER_ENERGY;
 //               int[] colDep = {col};
 //               for(int i : colDep){
@@ -437,8 +451,8 @@ public class SeamCarver {
 
 //               System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
 //               System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
-           }
-           else if (col == W-1) {
+            }
+            else if (col == W-1) {
 //               pixEnergyArr[rowCnt][col-1] = BORDER_ENERGY;
                /*int srcPos = 0;
                int destPos = 0;
@@ -448,13 +462,13 @@ public class SeamCarver {
 
 //               System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
 //               System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
-           }
-           else{
-               int srcPos = col+1;
-               int destPos = col;
-               int length = W-1-col;
-               System.arraycopy(pixels[rowCnt],srcPos,pixels[rowCnt],destPos,length);
-               System.arraycopy(pixEnergyArr[rowCnt],srcPos,pixEnergyArr[rowCnt],destPos,length);
+            }
+            else{
+                int srcPos = col+1;
+                int destPos = col;
+                int length = W-1-col;
+                System.arraycopy(pixels[rowCnt],srcPos,pixels[rowCnt],destPos,length);
+                System.arraycopy(pixEnergyArr[rowCnt],srcPos,pixEnergyArr[rowCnt],destPos,length);
 //               int[] colDep = {col - 1,col};
 
 //               int[] srcPosAll = {0, col+1};
@@ -469,7 +483,7 @@ public class SeamCarver {
 ////                   System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
 ////                   System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
 //               }
-           }
+            }
 
       /*      int[] colDep = {col - 1,col};
             for(int i : colDep){
