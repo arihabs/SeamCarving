@@ -5,13 +5,11 @@ import edu.princeton.cs.algs4.StdOut;
 import java.util.Arrays;
 import java.util.Stack;
 //TODO:
-// Need to keep track if this.H and this.W change after transposing and look at methods that rely on these variables.
+// Need to add energy recompute after removing seam. Make sure that keeping track of W  since it gets decreased and removing seam.
 // Need to update energies of pixels that bordered pixels that were removed.
 public class SeamCarver {
     private Picture pic;
     private double[][] pixEnergyArr;
-
-    private double[][] pixEnergyArr2;
 
     private int[][] pixels;
 
@@ -30,7 +28,7 @@ public class SeamCarver {
     }
 
     private int srcVertex = 0;
-    private int sinkVertex = nVertices()-1;
+    private int sinkVertex(){return nVertices()-1;}
 
     private int[] edgeTo;
     private double[] distTo;
@@ -49,8 +47,10 @@ public class SeamCarver {
 
     private int idxOffset = 1;
     private int[] idxToColRow(int i){
-        int col = i / W;
-        int row = i % W;
+//        int col = i / W;
+//        int row = i % W;
+        int col = i % W;
+        int row = i / W;
 //        int col = (i-idxOffset) / W;
 //        int row = (i-idxOffset) % W;
         int[] colRow = {col,row};
@@ -74,6 +74,14 @@ public class SeamCarver {
 
     private double computePixEnergy(int col, int row){
         if(col == 0 || row == 0 || col == this.W-1 || row == this.H-1)
+            return BORDER_ENERGY;
+
+        double ex = energyCol(col, row,false);
+        double ey = energyCol(col, row,true);
+        return Math.sqrt(ex+ey);
+    }
+    private double computePixEnergy(int col, int row,int W, int H){
+        if(col == 0 || row == 0 || col == W-1 || row == H-1)
             return BORDER_ENERGY;
 
         double ex = energyCol(col, row,false);
@@ -127,7 +135,7 @@ public class SeamCarver {
         }
 
         // If we are dealing with sink, return empty q.
-        if(v == sinkVertex)
+        if(v == sinkVertex())
             return q;
 
         int[] colRow = vertexToColRow(v);
@@ -137,7 +145,7 @@ public class SeamCarver {
 
         // If we are dealing with last row, then adjacent vertex is sink source.
         if(currRow == H-1){
-            q.enqueue(sinkVertex);
+            q.enqueue(sinkVertex());
             return q;
         }
 
@@ -155,11 +163,12 @@ public class SeamCarver {
         // edge weight is defined by energy at node w.
         // for w = sink vertex, define weight to be 0.
         assert(w != srcVertex);
-        if(w == sinkVertex)
+        if(w == sinkVertex())
             return 0.0;
 
         int[] colRow = vertexToColRow(w);
-        return energy(colRow[0],colRow[1]);
+        return pixEnergyArr[colRow[1]][colRow[0]];
+//        return energy(colRow[0],colRow[1]);
     }
 
     private boolean isValidPixel(int col, int row){
@@ -174,11 +183,11 @@ public class SeamCarver {
     }
 
     private void transpose(){
+        pixels = transpose(pixels);
+        pixEnergyArr = transpose(pixEnergyArr);
         int H = this.H;
         this.H = this.W;
         this.W = H;
-        pixels = transpose(pixels);
-        pixEnergyArr = transpose(pixEnergyArr);
         isTransposed = !isTransposed;
     }
     private int[][] transpose(int[][] A){
@@ -231,7 +240,7 @@ public class SeamCarver {
         // Store local copy of pixel values
 //        pixels = new int[W][H];
         pixels = new int[H][W];
-        pixEnergyArr2 = new double[H][W];
+        pixEnergyArr = new double[H][W];
         for(int col = 0; col < W; col++){
             for(int row = 0; row < H; row++){
 //                pixels[col][row] = pic.getRGB(col,row);
@@ -240,12 +249,12 @@ public class SeamCarver {
         }
         for(int col = 0; col < W; col++){
             for(int row = 0; row < H; row++){
-                pixEnergyArr2[row][col] = computePixEnergy(col,row);
+                pixEnergyArr[row][col] = computePixEnergy(col,row);
             }
         }
 
 //        pixEnergy = new double[width][height];
-        pixEnergyArr = new double[height][width];
+/*        pixEnergyArr = new double[height][width];
         // Store border pixel energy
         // Top and bottom rows
         int[] borderRows = {0, height -1};
@@ -276,7 +285,7 @@ public class SeamCarver {
 
         boolean energyCheck = Arrays.deepEquals(pixEnergyArr2,pixEnergyArr);
         assert energyCheck;
-
+        */
 
         // Define the weight of an edge v->w as the energy of pixel w
         // We create a virtual vertex above and below picture as sources and sink.
@@ -293,12 +302,11 @@ public class SeamCarver {
     public Picture picture(){
         if(seamRemoved){
             pic = new Picture(this.W, this.H);
+            if(isTransposed)
+                transpose();
             for (int col = 0; col < this.W; col++) {
                 for (int row = 0; row < this.H; row++) {
-                    if(isTransposed)
-                        pic.setRGB(col,row,pixels[row][col]);
-                    else
-                        pic.setRGB(col,row,pixels[col][row]);
+                    pic.setRGB(col,row,pixels[row][col]);
                 }
             }
             seamRemoved = false;
@@ -324,7 +332,10 @@ public class SeamCarver {
 
     // energy of pixel at column x and row y
     public double energy(int x, int y){
-        return pixEnergyArr[y][x];
+        if(isTransposed)
+            return pixEnergyArr[x][y];
+        else
+            return pixEnergyArr[y][x];
     }
 
     // sequence of indices for horizontal seam
@@ -335,7 +346,7 @@ public class SeamCarver {
 //            pixEnergy = transpose(pixEnergy);
 //            isTransposed = true;
         }
-        return findVerticalSeam();
+        return findVerticalSeamEntry();
     }
 
     // sequence of indices for vertical seam
@@ -343,6 +354,12 @@ public class SeamCarver {
         if(isTransposed){
             transpose();
         }
+        return findVerticalSeamEntry();
+    }
+    private int[] findVerticalSeamEntry(){
+//        if(isTransposed){
+//            transpose();
+//        }
         // Topological order = put vertices in order such that all its directed edges point from a vertex earlier in order to vertex later in order. For a vertical seam in a picture, that order is by traversing pixels row by row
         int[] edgeTo = new int[nVertices()];
         double[] distTo = new double[nVertices()];
@@ -359,12 +376,12 @@ public class SeamCarver {
         }
 
         Stack<Integer> s = new Stack<>();
-        for(int v = edgeTo[sinkVertex]; v != srcVertex; v = edgeTo[v]){
+        for(int v = edgeTo[sinkVertex()]; v != srcVertex; v = edgeTo[v]){
             s.push(v);
         }
 
         int[] seam = new int[s.size()];
-        for(int i = 0; i < s.size(); i++) {
+        for(int i = 0; i < seam.length; i++) {
             int[] colRow = vertexToColRow(s.pop());
             // Convert vertex to corresponding col,row and store column
             seam[i] = colRow[0];
@@ -374,55 +391,107 @@ public class SeamCarver {
     }
 
     // remove horizontal seam from current picture
-//    public void removeHorizontalSeam(int[] seam){}
+    public void removeHorizontalSeam(int[] seam){
+        if(!isTransposed){
+            transpose();
+        }
+        removeVerticalSeam_entry(seam);
+    }
 
     // remove vertical seam from current picture
+    // REMOVE pixelsNew and energyNew and just call arraycopy with same variable!
     public void removeVerticalSeam(int[] seam){
         if(isTransposed){
             transpose();
-//            pixels = transpose(pixels);
-//            pixEnergy = transpose(pixEnergy);
-//            isTransposed = false;
         }
+        removeVerticalSeam_entry(seam);
+    }
+    private void removeVerticalSeam_entry(int[] seam){
+//        if(isTransposed){
+//            transpose();
+////            pixels = transpose(pixels);
+////            pixEnergy = transpose(pixEnergy);
+////            isTransposed = false;
+//        }
 //        int srcPos;
 //        int destPos;
 //        int length;
-        int[][] pixelsNew = new int[H][W-1];
-        double[][] energyNew = new double[H][W-1];
+//        int[][] pixelsNew = new int[H][W-1];
+//        double[][] energyNew = new double[H][W-1];
         int rowCnt = 0;
         for(int col : seam){
            if(col == 0){
                int srcPos = 1;
                int destPos = 0;
                int length = W-1;
-               System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
-               System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
+               System.arraycopy(pixels[rowCnt],srcPos,pixels[rowCnt],destPos,length);
+               System.arraycopy(pixEnergyArr[rowCnt],srcPos,pixEnergyArr[rowCnt],destPos,length);
+               // Recompute energies dependant on removed pixel
+//               pixEnergyArr[rowCnt][0] = BORDER_ENERGY;
+//               int[] colDep = {col};
+//               for(int i : colDep){
+//                   if(isValidPixel(i,rowCnt)){
+//                       pixEnergyArr[rowCnt][i] = computePixEnergy(i,rowCnt);
+//                   }
+//               }
+
+//               System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
+//               System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
            }
            else if (col == W-1) {
-               int srcPos = 0;
+//               pixEnergyArr[rowCnt][col-1] = BORDER_ENERGY;
+               /*int srcPos = 0;
                int destPos = 0;
                int length = W-1;
-               System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
-               System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
+               System.arraycopy(pixels[rowCnt],srcPos,pixels[rowCnt],destPos,length);
+               System.arraycopy(pixEnergyArr[rowCnt],srcPos,pixEnergyArr[rowCnt],destPos,length);*/
+
+//               System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
+//               System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
            }
            else{
-               int[] srcPosAll = {0, col+1};
-               int[] destPosAll = {0, col};
-               int[] lengthAll = {col, W-1-col};
-               for(int i = 0; i < srcPosAll.length; i++){
-                   int srcPos = srcPosAll[i];
-                   int destPos =  destPosAll[i];
-                   int length = lengthAll[i];
-                   System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
-                   System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
-               }
+               int srcPos = col+1;
+               int destPos = col;
+               int length = W-1-col;
+               System.arraycopy(pixels[rowCnt],srcPos,pixels[rowCnt],destPos,length);
+               System.arraycopy(pixEnergyArr[rowCnt],srcPos,pixEnergyArr[rowCnt],destPos,length);
+//               int[] colDep = {col - 1,col};
+
+//               int[] srcPosAll = {0, col+1};
+//               int[] destPosAll = {0, col};
+//               int[] lengthAll = {col, W-1-col};
+//               for(int i = 0; i < srcPosAll.length; i++){
+//                   int srcPos = srcPosAll[i];
+//                   int destPos =  destPosAll[i];
+//                   int length = lengthAll[i];
+//                   System.arraycopy(pixels[rowCnt],srcPos,pixels[rowCnt],destPos,length);
+//                   System.arraycopy(pixEnergyArr[rowCnt],srcPos,pixEnergyArr[rowCnt],destPos,length);
+////                   System.arraycopy(pixels[rowCnt],srcPos,pixelsNew[rowCnt],destPos,length);
+////                   System.arraycopy(pixEnergyArr[rowCnt],srcPos,energyNew[rowCnt],destPos,length);
+//               }
            }
+
+      /*      int[] colDep = {col - 1,col};
+            for(int i : colDep){
+                if(isValidPixel(i,rowCnt)){
+                    pixEnergyArr[rowCnt][i] = computePixEnergy(i,rowCnt);
+                }
+            }*/
             rowCnt++;
         }
-        pixels = pixelsNew;
-        pixEnergyArr = energyNew;
-        seamRemoved = true;
+
         W--;
+        seamRemoved = true;
+        // Recompute dependent energies
+        rowCnt = 0;
+        for(int col : seam) {
+//            int[] colDep = {col - 1, col};
+            if(col > W-1)
+                continue;
+
+            pixEnergyArr[rowCnt][col] = computePixEnergy(col, rowCnt);
+            rowCnt++;
+        }
     }
 
     // unit testing
@@ -440,9 +509,23 @@ public class SeamCarver {
 
         for(int row = 0; row < sc.height(); row++){
             for(int col = 0; col < sc.width(); col++){
-                StdOut.printf("%9.0f",sc.pixEnergyArr2[row][col]);
+                StdOut.printf("%9.0f",sc.pixEnergyArr[row][col]);
             }
             StdOut.println();
         }
+
+        int[] vSeam = sc.findVerticalSeam();
+        StdOut.println("Vertical Seam: ");
+        for(int i : vSeam){
+            StdOut.print(i + ",");
+        }
+        StdOut.println();
+
+        int[] hSeam = sc.findHorizontalSeam();
+        StdOut.println("Horizontal Seam: ");
+        for(int i : hSeam){
+            StdOut.print(i + ",");
+        }
+        StdOut.println();
     }
 }
