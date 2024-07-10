@@ -1,7 +1,8 @@
 import edu.princeton.cs.algs4.Picture;
 import edu.princeton.cs.algs4.Queue;
 import edu.princeton.cs.algs4.StdOut;
-//import java.util.TreeSet;
+import edu.princeton.cs.algs4.In;
+import java.io.File;
 import java.util.Arrays;
 import java.util.Stack;
 //TODO:
@@ -72,6 +73,11 @@ public class SeamCarver {
         return colrowToIndex(col, row) + idxOffset;
     }
 
+    private void computeAllPixEnergy(){
+        for(int row = 0; row < this.H; row++)
+            for(int col = 0; col < this.W; col++)
+                this.pixEnergyArr[row][col] = computePixEnergy(col, row);
+    }
     private double computePixEnergy(int col, int row){
         if(col == 0 || row == 0 || col == this.W-1 || row == this.H-1)
             return BORDER_ENERGY;
@@ -230,6 +236,9 @@ public class SeamCarver {
     }
     // create a seam carver object based on the given picture
     public SeamCarver(Picture picture){
+        if(picture==null)
+            throw new IllegalArgumentException("Null argument not allowed!");
+
         pic = new Picture(picture);
 
         this.W = pic.width();
@@ -300,16 +309,18 @@ public class SeamCarver {
 
     // current picture
     public Picture picture(){
-        if(seamRemoved){
-            pic = new Picture(this.W, this.H);
-            if(isTransposed)
-                transpose();
-            for (int col = 0; col < this.W; col++) {
-                for (int row = 0; row < this.H; row++) {
-                    pic.setRGB(col,row,pixels[row][col]);
-                }
+        if(isTransposed)
+            transpose();
+//        if(seamRemoved){
+        pic = new Picture(this.W, this.H);
+//            if(isTransposed)
+//                transpose();
+        for (int col = 0; col < this.W; col++) {
+            for (int row = 0; row < this.H; row++) {
+                pic.setRGB(col,row,pixels[row][col]);
             }
-            seamRemoved = false;
+//            }
+//            seamRemoved = false;
         }
         return pic;
     }
@@ -374,7 +385,7 @@ public class SeamCarver {
         for(int v = 0; v < nVertices(); v++){
             for(int w : adjVerticalVertex(v)){
                 double currWeight = weight(v,w);
-                if(distTo[w] >= distTo[v] + currWeight){
+                if(distTo[w] > distTo[v] + currWeight){
                     distTo[w] = distTo[v] + currWeight;
                     edgeTo[w] = v;
                 }
@@ -428,8 +439,15 @@ public class SeamCarver {
 //        int length;
 //        int[][] pixelsNew = new int[H][W-1];
 //        double[][] energyNew = new double[H][W-1];
+        if(seam.length != this.H)
+            throw new IllegalArgumentException("Seam not proper length");
         if(this.W <=1)
             throw new IllegalArgumentException();
+        for(int i = 1; i < seam.length; i++){
+            if(Math.abs(seam[i] - seam[i-1]) > 1)
+                throw new IllegalArgumentException("Seam values must be within 1 pixel of each other.");
+        }
+
         int rowCnt = 0;
         for(int col : seam){
             if(col < 0 || col >=this.W)
@@ -496,49 +514,120 @@ public class SeamCarver {
 
         W--;
         seamRemoved = true;
+        // Recompute all energies
+        computeAllPixEnergy();
         // Recompute dependent energies
-        rowCnt = 0;
-        for(int col : seam) {
-//            int[] colDep = {col - 1, col};
-            if(col > W-1)
-                continue;
-
-            pixEnergyArr[rowCnt][col] = computePixEnergy(col, rowCnt);
-            rowCnt++;
-        }
+//        rowCnt = 0;
+//        for(int col : seam) {
+////            int[] colDep = {col - 1, col};
+//            if(col > W-1)
+//                continue;
+//
+//            pixEnergyArr[rowCnt][col] = computePixEnergy(col, rowCnt);
+//            rowCnt++;
+//        }
     }
 
     // unit testing
     public static void main(String[] args){
-        Picture picture = new Picture(args[0]);
-        SeamCarver sc = new SeamCarver(picture);
+        String fName = args[0];
+//        if(fName.equals("DEBUG")) {
+        File f = new File(fName);
+        String[] nameParts = f.getName().split("\\.");
+//        String[] fileParts = fName.split("\\.");
+        if (nameParts[nameParts.length - 1].equals("txt")) {
+            String[] dims = nameParts[0].split("_")[0].split("x");
+            int W = Integer.parseInt(dims[0]);
+            int H = Integer.parseInt(dims[1]);
+            Picture picture = new Picture(W, H);
+            In file = new In(fName);
+            String[] hexVals = file.readAllStrings();
+            for (int row = 0; row < H; row++) {
+                for (int col = 0; col < W; col++) {
+                    picture.setRGB(col, row, Integer.parseInt(hexVals[row * W + col], 16));
+                }
+            }
+            SeamCarver sc = new SeamCarver(picture);
+            sc.printPixels();
+            sc.printEnergy();
+            String[] seamVals = args[1].split(",");
+            int[] intArray = new int[seamVals.length];
+            for (int i = 0; i < seamVals.length; i++) {
+                intArray[i] = Integer.parseInt(seamVals[i]);
+            }
 
-        for(int row = 0; row < sc.height(); row++){
-            for(int col = 0; col < sc.width(); col++){
-                StdOut.printf("%9.0f",sc.energy(col,row));
+            sc.removeHorizontalSeam(intArray);
+
+            sc.printPixels();
+//            sc.printEnergy();
+
+//            sc.computeAllPixEnergy();
+            sc.printEnergy();
+        }
+//        }
+        else{
+            Picture picture = new Picture(args[0]);
+
+            SeamCarver sc = new SeamCarver(picture);
+
+            for (int row = 0; row < sc.height(); row++) {
+                for (int col = 0; col < sc.width(); col++) {
+                    StdOut.printf("%9.0f", sc.energy(col, row));
+                }
+                StdOut.println();
+            }
+            StdOut.println();
+
+            for (int row = 0; row < sc.height(); row++) {
+                for (int col = 0; col < sc.width(); col++) {
+                    StdOut.printf("%9.0f", sc.pixEnergyArr[row][col]);
+                }
+                StdOut.println();
+            }
+
+            int[] vSeam = sc.findVerticalSeam();
+            StdOut.println("Vertical Seam: ");
+            for (int i : vSeam) {
+                StdOut.print(i + ",");
+            }
+            StdOut.println();
+
+            int[] hSeam = sc.findHorizontalSeam();
+            StdOut.println("Horizontal Seam: ");
+            for (int i : hSeam) {
+                StdOut.print(i + ",");
+            }
+            StdOut.println();
+            StdOut.println("W = " + sc.width() + "H = " + sc.height());
+
+            int[] seam = {1, 2, 1, 2, 1, 0};
+            sc.removeHorizontalSeam(seam);
+            StdOut.println("Removed horizontal seam");
+            StdOut.println("W = " + sc.width() + "H = " + sc.height());
+        }
+        // Test picture
+    }
+
+    private void printEnergy(){
+        if(isTransposed)
+            transpose();
+        for (int row = 0; row < this.height(); row++) {
+            for (int col = 0; col < this.width(); col++) {
+                StdOut.printf("%9.3f", this.energy(col, row));
             }
             StdOut.println();
         }
         StdOut.println();
+    }
 
-        for(int row = 0; row < sc.height(); row++){
-            for(int col = 0; col < sc.width(); col++){
-                StdOut.printf("%9.0f",sc.pixEnergyArr[row][col]);
+    private void printPixels(){
+        if(isTransposed)
+            transpose();
+        for (int row = 0; row < this.height(); row++) {
+            for (int col = 0; col < this.width(); col++) {
+                StdOut.printf("%9x ", pixels[row][col]);
             }
             StdOut.println();
-        }
-
-        int[] vSeam = sc.findVerticalSeam();
-        StdOut.println("Vertical Seam: ");
-        for(int i : vSeam){
-            StdOut.print(i + ",");
-        }
-        StdOut.println();
-
-        int[] hSeam = sc.findHorizontalSeam();
-        StdOut.println("Horizontal Seam: ");
-        for(int i : hSeam){
-            StdOut.print(i + ",");
         }
         StdOut.println();
     }
